@@ -1,0 +1,135 @@
+                                <!DOCTYPE html>
+                                <html lang="en">
+                                <head>
+                                    <meta charset="UTF-8">
+                                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                    <title>Chatroom</title>
+                                    <link rel="stylesheet" href="styles.css">
+                                </head>
+                                <body>
+                                    <!-- Login Menu -->
+                                    <div id="login-container">
+                                        <h2>Enter Chatroom</h2>
+                                        <input id="username" type="text" placeholder="Username" />
+                                        <input id="room-code-input" type="text" placeholder="Room Code (Optional)" />
+                                        <button id="join-btn">Join</button>
+                                    </div>
+
+                                    <!-- Chat Container -->
+                                    <div id="chat-container" style="display:none;">
+                                        <!-- Top Bar: Room Code and Username -->
+                                        <div id="top-bar">
+                                            <span id="room-code">Room Code: </span>
+                                            <span id="username-display">Username: </span>
+                                        </div>
+
+                                        <!-- Chat Messages -->
+                                        <div id="messages"></div>
+
+                                        <!-- Message Input Section (at the bottom) -->
+                                        <div id="input-container">
+                                            <input id="chat-input" type="text" placeholder="Type your message..." />
+                                            <input type="file" id="file-input" accept="image/*" />
+                                            <button id="send-btn">Send</button>
+                                        </div>
+                                    </div>
+
+                                    <script src="/socket.io/socket.io.js"></script>
+                                    <script>
+                                        const socket = io();
+
+                                        const loginContainer = document.getElementById('login-container');
+                                        const chatContainer = document.getElementById('chat-container');
+                                        const usernameInput = document.getElementById('username');
+                                        const roomCodeInput = document.getElementById('room-code-input');
+                                        const joinButton = document.getElementById('join-btn');
+                                        const topBar = document.getElementById('top-bar');
+                                        const roomCodeDisplay = document.getElementById('room-code');
+                                        const usernameDisplay = document.getElementById('username-display');
+
+                                        const input = document.getElementById('chat-input');
+                                        const fileInput = document.getElementById('file-input');
+                                        const messagesDiv = document.getElementById('messages');
+                                        const sendButton = document.getElementById('send-btn');
+
+                                        joinButton.addEventListener('click', () => {
+                                            const username = usernameInput.value.trim();
+                                            const roomCode = roomCodeInput.value.trim() || generateRoomCode();
+
+                                            if (username) {
+                                                // Emit the 'join' event with username and room code
+                                                socket.emit('join', { username, roomCode });
+
+                                                // Hide login and show the chat interface
+                                                loginContainer.style.display = 'none';
+                                                chatContainer.style.display = 'block';
+
+                                                // Update the top bar with the room code and username
+                                                roomCodeDisplay.textContent = `Room Code: ${roomCode}`;
+                                                usernameDisplay.textContent = `Username: ${username}`;
+                                            } else {
+                                                alert('Username is required!');
+                                            }
+                                        });
+
+                                        function generateRoomCode() {
+                                            // Generate a random 6-character alphanumeric string for room code
+                                            return Math.random().toString(36).substr(2, 6).toUpperCase();
+                                        }
+
+                                        sendButton.addEventListener('click', () => {
+                                            const message = input.value.trim();
+                                            if (message) {
+                                                const msg = { type: 'text', content: message };
+                                                socket.emit('chat message', msg);
+                                                input.value = '';
+                                            }
+                                        });
+
+                                        fileInput.addEventListener('change', (event) => {
+                                            const file = event.target.files[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = function () {
+                                                    const msg = { type: 'image', content: reader.result };
+                                                    socket.emit('chat message', msg);
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        });
+
+                                        socket.on('chat message', (msg) => {
+                                            const messageElement = document.createElement('div');
+
+                                            // Add the sender's name
+                                            const senderElement = document.createElement('span');
+                                            senderElement.textContent = msg.username + ': ';
+                                            senderElement.style.fontWeight = 'bold';
+                                            messageElement.appendChild(senderElement);
+
+                                            // Display message content (text or image)
+                                            if (msg.type === 'text') {
+                                                const messageText = document.createElement('span');
+                                                messageText.textContent = msg.content;
+                                                messageElement.appendChild(messageText);
+                                            } else if (msg.type === 'image') {
+                                                const img = document.createElement('img');
+                                                img.src = msg.content;
+                                                img.style.maxWidth = '100%';
+                                                img.style.borderRadius = '8px';
+                                                messageElement.appendChild(img);
+                                            }
+
+                                            messagesDiv.appendChild(messageElement);
+                                            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto scroll to latest message
+                                        });
+
+                                        socket.on('user joined', (msg) => {
+                                            const messageElement = document.createElement('div');
+                                            messageElement.textContent = msg;
+                                            messageElement.style.fontWeight = 'bold';
+                                            messagesDiv.appendChild(messageElement);
+                                        });
+                                    </script>
+                                </body>
+                                </html>
